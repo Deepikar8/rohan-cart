@@ -7,6 +7,7 @@ import { Banana }     from '../items/Banana.js';
 
 const COUNTDOWN_TICKS = [3, 2, 1];  // seconds
 const POST_FINISH_WAIT = 8000;      // ms after last bot finishes → results
+const CAMERA_PADDING = 260;
 
 // ─── Random item from weighted table ─────────────────────────────────────────
 
@@ -50,7 +51,10 @@ function drawTrack(scene, track) {
 
   // Grass background
   g.fillStyle(grassColor);
-  g.fillRect(0, 0, worldWidth, worldHeight);
+  g.fillRect(-CAMERA_PADDING, -CAMERA_PADDING,
+    worldWidth + CAMERA_PADDING * 2,
+    worldHeight + CAMERA_PADDING * 2
+  );
 
   // Helper: draw each segment as individual thick rounded rectangles
   // so corners NEVER get miter-spike artifacts regardless of angle.
@@ -149,6 +153,8 @@ export class RaceScene extends Phaser.Scene {
     this._raceActive  = false;
     this._postFinish  = false;
     this._raceTime    = 0;
+    this._cameraMode  = 'chase';
+    this._targetZoom  = 1.08;
 
     // Physics world bounds
     this.physics.world.setBounds(0, 0, track.worldWidth, track.worldHeight);
@@ -164,10 +170,20 @@ export class RaceScene extends Phaser.Scene {
 
     // ── Camera ────────────────────────────────────────────────────────────
     const player = this._karts[0];
-    this.cameras.main.startFollow(player.sprite, true, 0.08, 0.08);
-    this.cameras.main.setZoom(1.15);
-    this.cameras.main.setBounds(0, 0, track.worldWidth, track.worldHeight);
+    this._cameraTarget = this.add.zone(player.x, player.y, 1, 1);
+    this._registerWorldObject(this._cameraTarget);
+    this.cameras.main.startFollow(this._cameraTarget, true, 0.08, 0.08);
+    this.cameras.main.setBounds(
+      -CAMERA_PADDING,
+      -CAMERA_PADDING,
+      track.worldWidth + CAMERA_PADDING * 2,
+      track.worldHeight + CAMERA_PADDING * 2
+    );
+    this._setCameraMode('chase', false);
     this._createHudCamera();
+
+    this._viewToggleKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+    this._viewToggleKey.on('down', () => this._toggleCameraMode());
 
     // ── HUD ────────────────────────────────────────────────────────────────
     this._buildHUD();
@@ -310,20 +326,37 @@ export class RaceScene extends Phaser.Scene {
     const s = { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff',
                 stroke: '#000000', strokeThickness: 3 };
     const W = GAME_WIDTH;
+    const hudY = 20;
+
+    this._registerHudObject(
+      this.add.rectangle(W / 2 - 120, hudY + 14, 220, 44, 0x000000, 0.45)
+        .setScrollFactor(0).setDepth(89)
+    );
+    this._registerHudObject(
+      this.add.rectangle(W / 2 + 120, hudY + 14, 220, 44, 0x000000, 0.45)
+        .setScrollFactor(0).setDepth(89)
+    );
 
     // Lap counter
     this._lapTxt = this._registerHudObject(
-      this.add.text(20, 20, '', s).setScrollFactor(0).setDepth(90)
+      this.add.text(W / 2 - 120, hudY, '', s)
+        .setOrigin(0.5, 0)
+        .setScrollFactor(0)
+        .setDepth(90)
     );
 
     // Position indicator
-    this._posTxt = this._registerHudObject(this.add.text(20, 46, '', {
+    this._posTxt = this._registerHudObject(this.add.text(W / 2 + 120, hudY, '', {
       ...s, fontSize: '22px', color: '#ffdd00',
-    }).setScrollFactor(0).setDepth(90));
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(90));
 
     // Speed indicator (bottom-right)
     this._speedTxt = this._registerHudObject(this.add.text(W - 20, GAME_HEIGHT - 20, '', {
       ...s, fontSize: '16px', color: '#aaffaa',
+    }).setOrigin(1, 1).setScrollFactor(0).setDepth(90));
+
+    this._cameraTxt = this._registerHudObject(this.add.text(W - 20, GAME_HEIGHT - 46, '', {
+      ...s, fontSize: '13px', color: '#aaccff',
     }).setOrigin(1, 1).setScrollFactor(0).setDepth(90));
 
     // Item slots panel (bottom-left)
@@ -484,6 +517,58 @@ export class RaceScene extends Phaser.Scene {
     });
   }
 
+  _toggleCameraMode() {
+    this._setCameraMode(this._cameraMode === 'chase' ? 'driver' : 'chase');
+  }
+
+  _setCameraMode(mode, notify = true) {
+    this._cameraMode = mode;
+    const player = this._karts?.[0];
+    if (mode === 'driver') {
+      this._targetZoom = 1.9;
+      this.cameras.main.setZoom(this._targetZoom);
+      if (player) player.sprite.setAlpha(0.2);
+      if (notify && this._notifyTxt) this._showNotification('DRIVER POV', '#88ddff', 1400);
+    } else {
+      this._targetZoom = 1.08;
+      this.cameras.main.setZoom(this._targetZoom);
+      if (player) player.sprite.setAlpha(1);
+      if (notify && this._notifyTxt) this._showNotification('CHASE CAM', '#88ddff', 1400);
+    }
+  }
+
+  _updateCameraTarget() {
+    const player = this._karts[0];
+    if (!player || !this._cameraTarget) return;
+
+    const lookAhead = this._cameraMode === 'driver' ? 140 : 0;
+    this._cameraTarget.x = player.x + Math.cos(player.rotation) * lookAhead;
+    this._cameraTarget.y = player.y + Math.sin(player.rotation) * lookAhead;
+  }
+
+  _updateCameraZoom(delta) {
+    const player = this._karts[0];
+    if (!player) return;
+
+    let desiredZoom = this._targetZoom;
+    if (this._cameraMode === 'chase') {
+      const nearEdge = Math.min(
+        player.x,
+        this._track.worldWidth - player.x,
+        player.y,
+        this._track.worldHeight - player.y
+      );
+      if (nearEdge < 240) {
+        const t = Phaser.Math.Clamp((240 - nearEdge) / 240, 0, 1);
+        desiredZoom = Phaser.Math.Linear(this._targetZoom, 0.92, t);
+      }
+    }
+
+    const currentZoom = this.cameras.main.zoom;
+    const zoomLerp = 1 - Math.pow(0.001, delta / 1000);
+    this.cameras.main.setZoom(Phaser.Math.Linear(currentZoom, desiredZoom, zoomLerp));
+  }
+
   _goToResults() {
     // Force-finish any still-racing karts in the order of their race score
     const unfinished = this._karts
@@ -526,6 +611,9 @@ export class RaceScene extends Phaser.Scene {
         if (result) this._spawnItem(result.item, result.kart);
       }
     });
+
+    this._updateCameraTarget();
+    this._updateCameraZoom(delta);
 
     // ── Update shells ──────────────────────────────────────────────────────
     this._shells = this._shells.filter(s => s.alive);
@@ -617,6 +705,7 @@ export class RaceScene extends Phaser.Scene {
     this._lapTxt.setText(`Lap  ${lap} / ${this._totalLaps}`);
     this._posTxt.setText(`${rank}${suffix}  of  ${this._karts.length}`);
     this._speedTxt.setText(`${Math.abs(Math.round(player.speed))} km/h`);
+    this._cameraTxt.setText(`[C] ${this._cameraMode === 'driver' ? 'Driver POV' : 'Chase Cam'}`);
 
     // Item slots
     const icons = { shell: '🟢', banana: '🍌', boost: '🔥' };

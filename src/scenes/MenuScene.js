@@ -77,11 +77,12 @@ export class MenuScene extends Phaser.Scene {
     // ── Panel: track ──────────────────────────────────────────────────────
     this._buildSection(W / 2, 286, 'TRACK', () =>
       TRACKS.map((t, i) => ({
-        lbl:    `${t.name}  [${t.difficulty}]`,
+        lbl:    `${t.name}\n[${t.difficulty}]`,
         value:  i,
         getter: () => this._trackIdx,
         setter: v => { this._trackIdx = v; },
-      }))
+      })),
+      { fontSize: '12px', fixedWidth: 136, lineSpacing: 2, paddingX: 6, paddingY: 6 }
     );
 
     // ── Panel: laps ───────────────────────────────────────────────────────
@@ -169,25 +170,32 @@ export class MenuScene extends Phaser.Scene {
    * @param {string}   title
    * @param {function} optsFn    Returns array of {lbl, value, getter, setter}
    */
-  _buildSection(cx, cy, title, optsFn) {
+  _buildSection(cx, cy, title, optsFn, config = {}) {
     this.add.text(cx, cy, title, {
       fontFamily: 'monospace', fontSize: '13px', color: '#e94560',
       letterSpacing: 4,
     }).setOrigin(0.5);
 
     const opts    = optsFn();
-    const btnW    = Math.min(140, (580 / opts.length) - 6);
+    const btnW    = config.fixedWidth ?? Math.min(140, (580 / opts.length) - 6);
     const gap     = btnW + 8;
     const startX  = cx - ((opts.length - 1) * gap) / 2;
+    const fontSize = config.fontSize ?? '14px';
+    const paddingX = config.paddingX ?? 10;
+    const paddingY = config.paddingY ?? 7;
+    const lineSpacing = config.lineSpacing ?? 0;
 
     opts.forEach((opt, i) => {
       const x   = startX + i * gap;
       const btn = this.add.text(x, cy + 38, opt.lbl, {
         fontFamily: 'monospace',
-        fontSize:   '14px',
+        fontSize,
         color:      opt.getter() === opt.value ? '#ffdd00' : DIM_CLR,
         backgroundColor: opt.getter() === opt.value ? '#2a1a00' : '#111122',
-        padding:    { x: 10, y: 7 },
+        align:      'center',
+        fixedWidth: btnW,
+        lineSpacing,
+        padding:    { x: paddingX, y: paddingY },
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
       const refresh = () => {

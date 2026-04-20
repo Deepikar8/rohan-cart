@@ -74,6 +74,18 @@ export class Kart {
     this.maxSpeed     = this.baseMaxSpeed;
     this._crashCooldown = 0;   // ms – prevents repeated crash tint spam
 
+    // ── Handling tuning ───────────────────────────────────────────────────
+    this.turnRateMultiplier = 1;
+    this.lowSpeedTurnAssist = 0.2;
+    this.turnAssistFullSpeed = 80;
+    this.onTrackGrip = 0.92;
+    this.offTrackGrip = 0.50;
+    this.coastDragPerFrame = 0.976;
+    this.stunDragPerFrame = 0.85;
+    this.reverseEngageSpeed = 28;
+    this.reverseAccelMultiplier = 0.7;
+    this.reverseLateralGrip = 0.45;
+
     // ── Item slots ─────────────────────────────────────────────────────────
     this.items = [null, null];
 
@@ -194,8 +206,9 @@ export class Kart {
 
     // ── Stunned: skid to a halt, no control
     if (this.state === STATE.STUNNED) {
-      this.vx *= 0.85;
-      this.vy *= 0.85;
+      const drag = Math.pow(this.stunDragPerFrame, dt * 60);
+      this.vx *= drag;
+      this.vy *= drag;
       this.sprite.setVelocity(this.vx, this.vy);
       this._speed = Math.hypot(this.vx, this.vy);
       return;
@@ -226,7 +239,7 @@ export class Kart {
     // Lateral friction = what makes it feel like a real car
     // Value is fraction of lateral velocity removed PER SECOND (dt-scaled inside)
     // On grass: less grip → more slide
-    this._applyLateralFriction(onTrack ? 0.92 : 0.50, dt);
+    this._applyLateralFriction(onTrack ? this.onTrackGrip : this.offTrackGrip, dt);
 
     // Wall collision: push back + crash bounce
     this._wallPushBack(distCenter, halfW);
@@ -312,14 +325,16 @@ export class Kart {
   _doSteerLeft(dt) {
     // Steering only effective when the car is actually moving
     const spd    = Math.hypot(this.vx, this.vy);
-    const factor = Math.min(1, spd / 80);
-    this.sprite.rotation -= KART_TURN_RATE * factor * dt;
+    const turnRange = Math.min(1, spd / this.turnAssistFullSpeed);
+    const factor = this.lowSpeedTurnAssist + (1 - this.lowSpeedTurnAssist) * turnRange;
+    this.sprite.rotation -= KART_TURN_RATE * this.turnRateMultiplier * factor * dt;
   }
 
   _doSteerRight(dt) {
     const spd    = Math.hypot(this.vx, this.vy);
-    const factor = Math.min(1, spd / 80);
-    this.sprite.rotation += KART_TURN_RATE * factor * dt;
+    const turnRange = Math.min(1, spd / this.turnAssistFullSpeed);
+    const factor = this.lowSpeedTurnAssist + (1 - this.lowSpeedTurnAssist) * turnRange;
+    this.sprite.rotation += KART_TURN_RATE * this.turnRateMultiplier * factor * dt;
   }
 
   _doAccel(dt, effMax) {
@@ -336,13 +351,15 @@ export class Kart {
   }
 
   _doBrake(dt) {
+    const fwdX = Math.cos(this.sprite.rotation);
+    const fwdY = Math.sin(this.sprite.rotation);
     const spd = Math.hypot(this.vx, this.vy);
-    if (spd < 12) {
-      // Slow enough → allow reversing
-      const fwdX = Math.cos(this.sprite.rotation);
-      const fwdY = Math.sin(this.sprite.rotation);
-      this.vx -= fwdX * KART_ACCEL * 0.45 * dt;
-      this.vy -= fwdY * KART_ACCEL * 0.45 * dt;
+    const forwardSpeed = this.vx * fwdX + this.vy * fwdY;
+    if (spd < this.reverseEngageSpeed || forwardSpeed < this.reverseEngageSpeed * 0.35) {
+      // Transition into reverse sooner and scrub sideways drift while backing up.
+      this._applyLateralFriction(this.reverseLateralGrip, dt);
+      this.vx -= fwdX * KART_ACCEL * this.reverseAccelMultiplier * dt;
+      this.vy -= fwdY * KART_ACCEL * this.reverseAccelMultiplier * dt;
       const rspd = Math.hypot(this.vx, this.vy);
       if (rspd > KART_REVERSE_MAX) {
         this.vx = (this.vx / rspd) * KART_REVERSE_MAX;
@@ -358,8 +375,9 @@ export class Kart {
 
   _doCoast(dt) {
     // Gentle drag when no input
-    this.vx *= 0.976;
-    this.vy *= 0.976;
+    const drag = Math.pow(this.coastDragPerFrame, dt * 60);
+    this.vx *= drag;
+    this.vy *= drag;
   }
 
   // ── Waypoint / lap logic ───────────────────────────────────────────────────

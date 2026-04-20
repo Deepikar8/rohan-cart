@@ -4,6 +4,17 @@ export class PlayerKart extends Kart {
   constructor(scene, x, y, angle, trackData) {
     super(scene, x, y, angle, 0, trackData);
 
+    // Player handling is a little more forgiving than the bot physics.
+    this.turnRateMultiplier = 1.18;
+    this.lowSpeedTurnAssist = 0.62;
+    this.turnAssistFullSpeed = 145;
+    this.onTrackGrip = 0.975;
+    this.offTrackGrip = 0.60;
+    this.coastDragPerFrame = 0.982;
+    this.reverseEngageSpeed = 44;
+    this.reverseAccelMultiplier = 0.92;
+    this.reverseLateralGrip = 0.7;
+
     // Cursor keys + WASD
     this.cursors = scene.input.keyboard.createCursorKeys();
     this.wasd = scene.input.keyboard.addKeys({
