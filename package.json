@@ -1,0 +1,11 @@
+{
+  "name": "rohan-cart",
+  "version": "1.0.0",
+  "description": "Mario Kart-inspired browser racing game — beat the robots!",
+  "scripts": {
+    "start": "npx serve . --listen 3000",
+    "dev":   "npx serve . --listen 3000"
+  },
+  "keywords": ["game", "racing", "phaser"],
+  "license": "MIT"
+}
