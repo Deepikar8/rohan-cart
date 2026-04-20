@@ -33,6 +33,15 @@ export class MenuScene extends Phaser.Scene {
   create() {
     window.dispatchEvent(new CustomEvent('robokart-controls', { detail: { visible: false } }));
     const W = GAME_WIDTH, H = GAME_HEIGHT;
+    const compactMenu = window.matchMedia?.('(pointer: coarse) and (orientation: landscape)').matches;
+    const titleY = compactMenu ? 42 : 52;
+    const titleSize = compactMenu ? '60px' : '72px';
+    const subtitleY = compactMenu ? 92 : 110;
+    const sectionYs = compactMenu
+      ? { players: 154, track: 232, laps: 310, bots: 388 }
+      : { players: 190, track: 286, laps: 382, bots: 478 };
+    const controlsY = compactMenu ? 486 : 558;
+    const startY = compactMenu ? H - 30 : H - 58;
 
     // Background
     this.add.rectangle(W / 2, H / 2, W, H, BG);
@@ -44,17 +53,17 @@ export class MenuScene extends Phaser.Scene {
     }
 
     // ── Title ─────────────────────────────────────────────────────────────
-    this.add.text(W / 2, 52, 'ROBO  KART', {
+    this.add.text(W / 2, titleY, 'ROBO  KART', {
       fontFamily: 'Impact, monospace',
-      fontSize:   '72px',
+      fontSize:   titleSize,
       color:      '#ffffff',
       stroke:     '#e94560',
       strokeThickness: 6,
       shadow:     { offsetX: 4, offsetY: 4, color: '#000', blur: 8, fill: true },
     }).setOrigin(0.5);
 
-    this.add.text(W / 2, 110, 'BEAT THE BOTS', {
-      fontFamily: 'monospace', fontSize: '20px', color: '#e94560',
+    this.add.text(W / 2, subtitleY, 'BEAT THE BOTS', {
+      fontFamily: 'monospace', fontSize: compactMenu ? '18px' : '20px', color: '#e94560',
       letterSpacing: 8,
     }).setOrigin(0.5);
 
@@ -65,7 +74,7 @@ export class MenuScene extends Phaser.Scene {
     this._botDifficulty = 'medium';
 
     // ── Panel: players ────────────────────────────────────────────────────
-    this._buildSection(W / 2, 190, 'PLAYERS  (1 human + bots)', () => {
+    this._buildSection(W / 2, sectionYs.players, 'PLAYERS  (1 human + bots)', () => {
       const labels = ['2 total', '3 total', '4 total', '5 total'];
       return labels.map((lbl, i) => ({
         lbl,
@@ -76,18 +85,24 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // ── Panel: track ──────────────────────────────────────────────────────
-    this._buildSection(W / 2, 286, 'TRACK', () =>
+    this._buildSection(W / 2, sectionYs.track, 'TRACK', () =>
       TRACKS.map((t, i) => ({
         lbl:    `${t.name}\n[${t.difficulty}]`,
         value:  i,
         getter: () => this._trackIdx,
         setter: v => { this._trackIdx = v; },
       })),
-      { fontSize: '12px', fixedWidth: 136, lineSpacing: 2, paddingX: 6, paddingY: 6 }
+      {
+        fontSize: compactMenu ? '11px' : '12px',
+        fixedWidth: compactMenu ? 128 : 136,
+        lineSpacing: 2,
+        paddingX: compactMenu ? 4 : 6,
+        paddingY: compactMenu ? 4 : 6,
+      }
     );
 
     // ── Panel: laps ───────────────────────────────────────────────────────
-    this._buildSection(W / 2, 382, 'LAPS', () => {
+    this._buildSection(W / 2, sectionYs.laps, 'LAPS', () => {
       const opts = [1, 2, 3, 5, 7, 10];
       return opts.map(n => ({
         lbl:    `${n}`,
@@ -98,7 +113,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // ── Panel: bot difficulty ─────────────────────────────────────────────
-    this._buildSection(W / 2, 478, 'BOT DIFFICULTY', () =>
+    this._buildSection(W / 2, sectionYs.bots, 'BOT DIFFICULTY', () =>
       Object.entries(BOT_DIFFICULTIES).map(([value, config]) => ({
         lbl:    config.label,
         value,
@@ -114,36 +129,38 @@ export class MenuScene extends Phaser.Scene {
       '🐢  X  →  Use item slot 2',
     ];
     leg.forEach((line, i) => {
-      this.add.text(W / 2, 558 + i * 28, line, {
-        fontFamily: 'monospace', fontSize: '15px', color: DIM_CLR,
+      this.add.text(W / 2, controlsY + i * (compactMenu ? 22 : 28), line, {
+        fontFamily: 'monospace', fontSize: compactMenu ? '13px' : '15px', color: DIM_CLR,
       }).setOrigin(0.5);
     });
 
     // ── Item legend ───────────────────────────────────────────────────────
-    const items = [
-      { icon: '🟢', name: 'Green Shell', desc: 'Thrown forward — stuns on hit' },
-      { icon: '🍌', name: 'Banana Peel', desc: 'Dropped behind — causes slide' },
-      { icon: '🔥', name: 'Speed Boost', desc: '3× speed for 3 seconds' },
-    ];
-    const legendX = 80;
-    items.forEach((it, i) => {
-      this.add.text(legendX, 200 + i * 58,
-        `${it.icon}  ${it.name}`, {
-          fontFamily: 'monospace', fontSize: '16px', color: '#ffdd88',
-        }
-      );
-      this.add.text(legendX, 222 + i * 58, `   ${it.desc}`, {
-        fontFamily: 'monospace', fontSize: '13px', color: DIM_CLR,
+    if (!compactMenu) {
+      const items = [
+        { icon: '🟢', name: 'Green Shell', desc: 'Thrown forward — stuns on hit' },
+        { icon: '🍌', name: 'Banana Peel', desc: 'Dropped behind — causes slide' },
+        { icon: '🔥', name: 'Speed Boost', desc: '3× speed for 3 seconds' },
+      ];
+      const legendX = 80;
+      items.forEach((it, i) => {
+        this.add.text(legendX, 200 + i * 58,
+          `${it.icon}  ${it.name}`, {
+            fontFamily: 'monospace', fontSize: '16px', color: '#ffdd88',
+          }
+        );
+        this.add.text(legendX, 222 + i * 58, `   ${it.desc}`, {
+          fontFamily: 'monospace', fontSize: '13px', color: DIM_CLR,
+        });
       });
-    });
+    }
 
     // ── Start button ──────────────────────────────────────────────────────
-    const startBtn = this.add.text(W / 2, H - 58, '▶  START RACE', {
+    const startBtn = this.add.text(W / 2, startY, '▶  START RACE', {
       fontFamily: 'Impact, monospace',
-      fontSize:   '34px',
+      fontSize:   compactMenu ? '28px' : '34px',
       color:      '#ffffff',
       backgroundColor: '#e94560',
-      padding:    { x: 40, y: 14 },
+      padding:    { x: compactMenu ? 28 : 40, y: compactMenu ? 10 : 14 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     startBtn.on('pointerover',  () => startBtn.setStyle({ color: '#ffff88' }));
