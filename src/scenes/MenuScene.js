@@ -32,6 +32,7 @@ export class MenuScene extends Phaser.Scene {
 
   create() {
     window.dispatchEvent(new CustomEvent('robokart-controls', { detail: { visible: false } }));
+    window.dispatchEvent(new CustomEvent('robokart-page-mode', { detail: { mode: 'menu' } }));
     const W = GAME_WIDTH, H = GAME_HEIGHT;
     const compactMenu = window.matchMedia?.('(pointer: coarse) and (orientation: landscape)').matches;
     const titleY = compactMenu ? 42 : 52;

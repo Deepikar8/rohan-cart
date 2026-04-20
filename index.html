@@ -35,6 +35,11 @@
                max(env(safe-area-inset-left), 10px);
     }
 
+    body.menu-scroll-enabled {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
     body.landscape-required #game-container,
     body.landscape-required #mobile-controls {
       visibility: hidden;
@@ -330,8 +335,13 @@
         padding-left: max(env(safe-area-inset-left), 8px);
       }
 
+      body.menu-scroll-enabled {
+        justify-content: flex-start;
+      }
+
       #game-container {
         width: min(100vw - 16px, calc((100svh - var(--mobile-controls-height) - 12px) * 16 / 9));
+        margin: 8px auto 12px;
       }
 
       #mobile-controls {
@@ -499,6 +509,11 @@
       mobileControls.setVisible(Boolean(event.detail?.visible));
     });
 
+    window.addEventListener('robokart-page-mode', event => {
+      const mode = event.detail?.mode || 'menu';
+      document.body.classList.toggle('menu-scroll-enabled', mode !== 'race');
+    });
+
     window.addEventListener('pointerdown', () => {
       tryLandscapeLock();
     }, { once: true });
@@ -508,6 +523,7 @@
       await tryLandscapeLock();
       updateLandscapeRequirement();
     });
+    document.body.classList.add('menu-scroll-enabled');
     updateLandscapeRequirement();
 
     // Hide the loading overlay once the window has fully loaded

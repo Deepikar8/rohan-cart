@@ -142,6 +142,7 @@ export class RaceScene extends Phaser.Scene {
 
   create() {
     window.dispatchEvent(new CustomEvent('robokart-controls', { detail: { visible: true } }));
+    window.dispatchEvent(new CustomEvent('robokart-page-mode', { detail: { mode: 'race' } }));
     const track      = TRACKS[this._trackIdx];
     this._track      = track;
     this._karts      = [];
