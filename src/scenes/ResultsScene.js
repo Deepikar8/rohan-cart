@@ -22,6 +22,7 @@ export class ResultsScene extends Phaser.Scene {
   }
 
   create() {
+    window.dispatchEvent(new CustomEvent('robokart-controls', { detail: { visible: false } }));
     const W = GAME_WIDTH, H = GAME_HEIGHT;
     const results = this._results;
 

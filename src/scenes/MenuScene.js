@@ -31,6 +31,7 @@ export class MenuScene extends Phaser.Scene {
   constructor() { super('MenuScene'); }
 
   create() {
+    window.dispatchEvent(new CustomEvent('robokart-controls', { detail: { visible: false } }));
     const W = GAME_WIDTH, H = GAME_HEIGHT;
 
     // Background
